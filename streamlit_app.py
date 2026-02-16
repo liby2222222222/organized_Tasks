@@ -110,7 +110,9 @@ with tab_tasks:
     else:
         p_order = {"גבוהה": 0, "בינונית": 1, "נמוכה": 2}
         sorted_tasks = sorted(enumerate(st.session_state.tasks), key=lambda x: (x[1]['completed'], p_order.get(x[1]['priority'], 3)))
-
+    selected_cats = st.multiselect("לראות רק את... (בחרי תחומים)", CATEGORIES)
+    if selected_cats:
+        sorted_tasks = [t for t in sorted_tasks if t[1]['category'] in selected_cats]
         for i, task in sorted_tasks:
             if st.session_state.editing_index == i:
                 # ממשק עריכה
