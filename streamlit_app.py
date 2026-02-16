@@ -4,9 +4,9 @@ import os
 from datetime import datetime
 
 # הגדרות עמוד
-st.set_page_config(page_title="המרחב השקט שלי", page_icon="✨", layout="centered")
+st.set_page_config(page_title="המרחב המאורגן שלי", page_icon="✨", layout="wide")
 
-# פונקציה לשמירה וטעינה של נתונים כדי שלא ימחקו
+# פונקציות שמירה וטעינה
 DB_FILE = "tasks_db.csv"
 
 def load_data():
@@ -20,94 +20,163 @@ def save_data(tasks):
     df = pd.DataFrame(tasks)
     df.to_csv(DB_FILE, index=False)
 
-# טעינת המשימות לתוך ה-Session State
 if 'tasks' not in st.session_state:
     st.session_state.tasks = load_data()
 
-# עיצוב בסיסי בעזרת CSS (לישור לימין)
+# רשימת התחומים המעודכנת שלך
+CATEGORIES = [
+    "לשכת המדענית משרד החינוך", "בייביסיטר מיוחד במינו", "מחקר איכותני", 
+    "מבוא לבריהמ", "כריית נתונים", "פלסטינים", "קורס התמחות", 
+    "ועדת חוקה", "בית", "רפואה", "קניות"
+]
+
+# --- עיצוב CSS פסטלי ואסתטי ---
 st.markdown("""
     <style>
-    .stApp { text-align: right; direction: rtl; }
-    [data-testid="stSidebar"] { text-align: right; direction: rtl; }
-    .stCheckbox { display: flex; flex-direction: row-reverse; }
+    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700&display=swap');
+    
+    html, body, [class*="st-"] {
+        font-family: 'Assistant', sans-serif;
+        direction: rtl;
+        text-align: right;
+    }
+    .stApp { background-color: #FDFCFB; }
+    
+    .stat-card {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        text-align: center;
+        border-bottom: 4px solid #E0BBE4;
+        margin-bottom: 10px;
+    }
+
+    .task-card {
+        background-color: white;
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        border-right: 8px solid #BEE1E6;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }
+    
+    .priority-high { border-right-color: #FFB3BA !important; } 
+    .priority-med { border-right-color: #FFDFBA !important; }  
+    .priority-low { border-right-color: #BAFFC9 !important; }  
+
+    .stButton>button {
+        border-radius: 10px;
+        background-color: #E0BBE4;
+        color: white;
+        border: none;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("המרחב השקט שלי ✨")
-st.write("צמצום עומס, שלב אחרי שלב.")
+st.title("המרחב האישי שלי ✨")
+st.write(f"היום: {datetime.now().strftime('%d/%m/%Y')} | צעד אחד בכל פעם.")
 
-# תפריט צד להוספת משימות
-with st.sidebar:
-    st.header("משימה חדשה 🌸")
-    with st.form("add_form", clear_on_submit=True):
-        name = st.text_input("מה צריך לעשות?")
-        cat = st.selectbox("תחום", ["לשכת המדענית משרד החינוך","בייביסיטר מיוחד במינו","מחקר איכותני","מבוא לבריהמ","כריית נתונים","פלסטינים","קורס התמחות","ועדת חוקה","בית","רפואה","קניות"])
-        priority = st.select_slider("רמת דחיפות", options=["נמוכה", "בינונית", "גבוהה"])
-        date = st.date_input("תאריך יעד", datetime.now())
-        note = st.text_area("הערות או מחשבות")
-        submit = st.form_submit_button("להוסיף לרשימה ✨")
-        
-        if submit and name:
-            st.session_state.tasks.append({
-                "name": name, "category": cat, "priority": priority, 
-                "due_date": date, "notes": note, "completed": False
-            })
-            save_data(st.session_state.tasks)
-            st.success("נוסף לרשימה!")
-
-# הצגת נתוני התקדמות
+# --- דאשבורד (לוח בקרה דינמי) ---
 if st.session_state.tasks:
     df = pd.DataFrame(st.session_state.tasks)
-    st.subheader("איך אני מתקדמת? 🚀")
     
-    cols = st.columns(4)
-    categories = ["אישי", "עבודה", "לימודים", "בית"]
+    # סיכום כללי
+    total = len(df)
+    done = df['completed'].sum()
+    prog_total = int((done/total)*100) if total > 0 else 0
     
-    for i, category in enumerate(categories):
-        cat_df = df[df["category"] == category]
-        if not cat_df.empty:
-            done = cat_df["completed"].sum()
-            total = len(cat_df)
-            percent = int((done / total) * 100)
-            cols[i].metric(category, f"{percent}%")
-            cols[i].progress(percent / 100)
-        else:
-            cols[i].metric(category, "0%")
-    
-    st.write("---")
+    col1, col2, col3 = st.columns([1,1,1])
+    col1.markdown(f"<div class='stat-card'><h3>{total}</h3>משימות לביצוע</div>", unsafe_allow_html=True)
+    col2.markdown(f"<div class='stat-card'><h3>{done}</h3>הושלמו</div>", unsafe_allow_html=True)
+    col3.markdown(f"<div class='stat-card'><h3>{prog_total}%</h3>הספק כללי</div>", unsafe_allow_html=True)
 
-    # הצגת הרשימה
-    st.subheader("הרשימה שלי")
+    # פירוט לפי תחומים (רק מה שיש בו משימות)
+    st.write("### איך אני מתקדמת בכל תחום?")
     
-    # מיון משימות: קודם לא בוצעו, לפי דחיפות
-    priority_map = {"גבוהה": 0, "בינונית": 1, "נמוכה": 2}
-    sorted_tasks = sorted(enumerate(st.session_state.tasks), 
-                          key=lambda x: (x[1]['completed'], priority_map.get(x[1]['priority'], 3)))
+    # מציג את התחומים ב-3 עמודות כדי לחסוך מקום
+    cat_cols = st.columns(3)
+    active_categories = df['category'].unique()
+    
+    for i, cat in enumerate(active_categories):
+        cat_df = df[df['category'] == cat]
+        c_done = cat_df['completed'].sum()
+        c_total = len(cat_df)
+        c_perc = c_done / c_total
+        
+        with cat_cols[i % 3]:
+            st.write(f"**{cat}** ({c_done}/{c_total})")
+            st.progress(c_perc)
+else:
+    st.info("הרשימה ריקה. זמן להכניס את כל המשימות ולעשות סדר בראש 🌸")
+
+st.write("---")
+
+# --- הוספת משימה חדשה ---
+with st.expander("➕ להוסיף משימה חדשה"):
+    with st.form("task_form", clear_on_submit=True):
+        name = st.text_input("מה המשימה?")
+        
+        c_col1, c_col2, c_col3 = st.columns(3)
+        with c_col1:
+            category = st.selectbox("תחום", CATEGORIES)
+        with c_col2:
+            prio_label = st.radio("דחיפות", ["🔥 דחוף", "⏳ בקרוב", "☁️ בנחת"], horizontal=True)
+            prio_map = {"🔥 דחוף": "גבוהה", "⏳ בקרוב": "בינונית", "☁️ בנחת": "נמוכה"}
+            priority = prio_map[prio_label]
+        with c_col3:
+            due_date = st.date_input("תאריך יעד", datetime.now())
+        
+        notes = st.text_area("הערות נוספות (לינקים, טלפונים, פרטים...)")
+        
+        if st.form_submit_button("להוסיף לרשימה ✨"):
+            if name:
+                st.session_state.tasks.append({
+                    "name": name, "category": category, "priority": priority,
+                    "due_date": due_date, "notes": notes, "completed": False
+                })
+                save_data(st.session_state.tasks)
+                st.rerun()
+
+# --- הצגת המשימות ---
+st.write("### הרשימה שלי")
+
+if st.session_state.tasks:
+    # בחירת סינון לפי תחום (אופציונלי)
+    filter_cat = st.multiselect("סינון לפי תחום (השאירי ריק להצגת הכל)", CATEGORIES)
+    
+    # הכנת הרשימה להצגה
+    p_order = {"גבוהה": 0, "בינונית": 1, "נמוכה": 2}
+    tasks_to_show = enumerate(st.session_state.tasks)
+    
+    if filter_cat:
+        tasks_to_show = [t for t in tasks_to_show if t[1]['category'] in filter_cat]
+        
+    sorted_tasks = sorted(tasks_to_show, key=lambda x: (x[1]['completed'], p_order.get(x[1]['priority'], 3)))
 
     for i, task in sorted_tasks:
-        with st.container():
-            col1, col2 = st.columns([0.8, 0.2])
-            
-            with col1:
-                # סימון בוצע
-                check = st.checkbox(f"**{task['name']}**", value=task['completed'], key=f"task_{i}")
-                if check != task['completed']:
-                    st.session_state.tasks[i]['completed'] = check
-                    save_data(st.session_state.tasks)
-                    st.rerun()
-                
-                # פרטים נוספים
-                color = "🔴" if task['priority'] == "גבוהה" else "🟡" if task['priority'] == "בינונית" else "🟢"
-                st.caption(f"{color} דחיפות: {task['priority']} | 📅 יעד: {task['due_date']} | 🏷️ {task['category']}")
-                if task['notes']:
-                    st.info(f"📝 {task['notes']}")
-            
-            with col2:
-                if st.button("מחיקה", key=f"del_{i}"):
-                    st.session_state.tasks.pop(i)
-                    save_data(st.session_state.tasks)
-                    st.rerun()
-            st.write("---")
-else:
-    st.balloons()
-    st.info("אין משימות כרגע. זה הזמן לנשום עמוק ולהירגע ☕")
+        p_class = "priority-high" if task['priority'] == "גבוהה" else "priority-med" if task['priority'] == "בינונית" else "priority-low"
+        completed_style = "opacity: 0.5; text-decoration: line-through;" if task['completed'] else ""
+        
+        st.markdown(f"""
+            <div class="task-card {p_class}" style="{completed_style}">
+                <div style="display: flex; justify-content: space-between;">
+                    <div>
+                        <strong>{task['name']}</strong><br>
+                        <small>🏷️ {task['category']} | 📅 {task['due_date']} | 🔥 {task['priority']}</small>
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        col_act1, col_act2, col_act3 = st.columns([0.2, 0.2, 0.6])
+        if col_act1.button("בוצע ✅" if not task['completed'] else "בטל", key=f"done_{i}"):
+            st.session_state.tasks[i]['completed'] = not st.session_state.tasks[i]['completed']
+            save_data(st.session_state.tasks)
+            st.rerun()
+        if col_act2.button("מחיקה 🗑️", key=f"del_{i}"):
+            st.session_state.tasks.pop(i)
+            save_data(st.session_state.tasks)
+            st.rerun()
+        if task['notes']:
+            col_act3.info(f"📝 {task['notes']}")
