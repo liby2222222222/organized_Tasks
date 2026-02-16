@@ -1,8 +1,3 @@
-code
-Python
-download
-content_copy
-expand_less
 import streamlit as st
 import pandas as pd
 import os
