@@ -32,7 +32,7 @@ CATEGORIES = [
     "ועדת חוקה", "בית", "רפואה", "קניות", "אישי", "הדגש", "לימודים כללי"
 ]
 
-# --- עיצוב CSS פסטלי משופר ---
+# --- עיצוב CSS פסטלי ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700&display=swap');
@@ -43,8 +43,6 @@ st.markdown("""
         text-align: right;
     }
     .stApp { background-color: #FDFCFB; }
-    
-    /* תיקון ה-Expander */
     .st-ae summary { flex-direction: row-reverse; justify-content: flex-start; gap: 15px; }
 
     .stat-card {
@@ -68,7 +66,6 @@ st.markdown("""
     .priority-בינונית { border-right-color: #FFDFBA !important; }  
     .priority-נמוכה { border-right-color: #BAFFC9 !important; }
 
-    /* עיצוב הטאבים */
     .stTabs [data-baseweb="tab-list"] { gap: 20px; }
     .stTabs [data-baseweb="tab"] {
         padding: 10px 20px;
@@ -81,12 +78,10 @@ st.markdown("""
 
 st.title("המרחב האישי שלי ✨")
 
-# יצירת טאבים למעבר בין רשימה לדאשבורד
 tab_tasks, tab_dashboard = st.tabs(["📝 ניהול משימות", "📊 דאשבורד התקדמות"])
 
 # --- טאב 1: ניהול משימות ---
 with tab_tasks:
-    # הוספת משימה
     with st.expander("➕ להוסיף משימה חדשה שיושבת לי על הראש"):
         with st.form("add_form", clear_on_submit=True):
             name = st.text_input("מה המשימה?")
@@ -108,14 +103,18 @@ with tab_tasks:
     if not st.session_state.tasks:
         st.info("אין כרגע משימות. זמן לנוח! ☕")
     else:
+        # מיון בסיסי
         p_order = {"גבוהה": 0, "בינונית": 1, "נמוכה": 2}
         sorted_tasks = sorted(enumerate(st.session_state.tasks), key=lambda x: (x[1]['completed'], p_order.get(x[1]['priority'], 3)))
-    selected_cats = st.multiselect("לראות רק את... (בחרי תחומים)", CATEGORIES)
-    if selected_cats:
-        sorted_tasks = [t for t in sorted_tasks if t[1]['category'] in selected_cats]
+        
+        # סינון קטגוריות (מחוץ ללופ)
+        selected_cats = st.multiselect("לראות רק את... (בחרי תחומים)", CATEGORIES)
+        if selected_cats:
+            sorted_tasks = [t for t in sorted_tasks if t[1]['category'] in selected_cats]
+
+        # לופ הצגת המשימות (עכשיו הוא מחוץ ל-if של הסינון כדי שיוצגו משימות גם כשלא נבחר כלום)
         for i, task in sorted_tasks:
             if st.session_state.editing_index == i:
-                # ממשק עריכה
                 with st.container():
                     st.markdown("---")
                     edit_name = st.text_input("שם המשימה", task['name'], key=f"ed_name_{i}")
@@ -131,77 +130,46 @@ with tab_tasks:
                         st.session_state.editing_index = None
                         st.rerun()
             else:
-                # תצוגה רגילה
                 p_class = f"priority-{task['priority']}"
                 comp_style = "opacity: 0.5; text-decoration: line-through;" if task['completed'] else ""
-                
-                st.markdown(f"""
-                    <div class="task-card {p_class}" style="{comp_style}">
-                        <strong>{task['name']}</strong><br>
-                        <small>{task['category']} | יעד: {task['due_date']} | דחיפות: {task['priority']}</small>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"""<div class="task-card {p_class}" style="{comp_style}"><strong>{task['name']}</strong><br><small>{task['category']} | יעד: {task['due_date']} | דחיפות: {task['priority']}</small></div>""", unsafe_allow_html=True)
                 
                 a1, a2, a3, a4 = st.columns([0.1, 0.1, 0.1, 0.7])
-                if a1.button("✅", key=f"d_{i}", help="בוצע/בטל"):
+                if a1.button("✅", key=f"d_{i}"):
                     st.session_state.tasks[i]['completed'] = not st.session_state.tasks[i]['completed']
                     save_data(st.session_state.tasks)
                     st.rerun()
-                if a2.button("📝", key=f"e_{i}", help="עריכה"):
+                if a2.button("📝", key=f"e_{i}"):
                     st.session_state.editing_index = i
                     st.rerun()
-                if a3.button("🗑️", key=f"del_{i}", help="מחיקה"):
+                if a3.button("🗑️", key=f"del_{i}"):
                     st.session_state.tasks.pop(i)
                     save_data(st.session_state.tasks)
                     st.rerun()
-                if task['notes']:
-                    a4.caption(f"📝 {task['notes']}")
+                if task['notes']: a4.caption(f"📝 {task['notes']}")
 
 # --- טאב 2: דאשבורד ---
 with tab_dashboard:
     st.header("איך אני מתקדמת היום? 📈")
-    
     if st.session_state.tasks:
         df = pd.DataFrame(st.session_state.tasks)
-        
-        # 1. מדדים כלליים
         total_tasks = len(df)
         completed_tasks = df['completed'].sum()
-        pending_tasks = total_tasks - completed_tasks
-        
         col_m1, col_m2, col_m3 = st.columns(3)
         col_m1.markdown(f"<div class='stat-card'><h3>{total_tasks}</h3>משימות סה\"כ</div>", unsafe_allow_html=True)
         col_m2.markdown(f"<div class='stat-card'><h3>{completed_tasks}</h3>משימות שבוצעו ✨</div>", unsafe_allow_html=True)
         col_m3.markdown(f"<div class='stat-card'><h3>{int((completed_tasks/total_tasks)*100)}%</h3>הספק כללי</div>", unsafe_allow_html=True)
         
         st.write("---")
-        
-        # 2. פירוט לפי תחומים
         st.subheader("התקדמות לפי נושאים")
-        
-        # יוצר שורות של 3 עמודות לכל התחומים
         active_cats = df['category'].unique()
         cat_cols = st.columns(3)
-        
         for index, cat in enumerate(active_cats):
             cat_df = df[df['category'] == cat]
-            c_done = cat_df['completed'].sum()
-            c_total = len(cat_df)
-            c_perc = c_done / c_total
-            
+            c_perc = cat_df['completed'].sum() / len(cat_df)
             with cat_cols[index % 3]:
                 st.write(f"**{cat}**")
                 st.progress(c_perc)
-                st.caption(f"{c_done} מתוך {c_total} הושלמו")
-                st.write("") # מרווח
-        
-        # 3. משימות דחופות שנותרו
-        st.write("---")
-        urgent_pending = df[(df['priority'] == 'גבוהה') & (df['completed'] == False)]
-        if not urgent_pending.empty:
-            st.warning(f"שימי לב! יש לך {len(urgent_pending)} משימות דחופות שעדיין לא טופלו.")
-        else:
-            st.success("אין משימות דחופות פתוחות. כל הכבוד!")
-            
+                st.caption(f"{cat_df['completed'].sum()} מתוך {len(cat_df)} הושלמו")
     else:
-        st.info("הדאשבורד יהיה פעיל ברגע שתכניסי משימות לרשימה.")
+        st.info("הדאשבורד יתמלא ברגע שתכניסי משימות.")
